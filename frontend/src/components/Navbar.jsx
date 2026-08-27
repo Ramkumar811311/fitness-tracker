@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import Hamburger from "hamburger-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { FiLogOut } from "react-icons/fi";
 import { useAuth } from "../context/AuthContext";
@@ -13,22 +13,21 @@ const Navbar = () => {
   const [isDropdownVisible, setIsDropdownVisible] = useState(false);
 
   const { isAuthenticated, user, logout } = useAuth();
-  const navigate = useNavigate();
 
   const userDropdownRef = useRef(null);
   const mobileDropdownRef = useRef(null);
 
-  // Mobile menu
+  // ================= MOBILE MENU =================
   const toggleMenu = () => {
     setIsMenu((prev) => !prev);
   };
 
-  // User dropdown
+  // ================= USER DROPDOWN =================
   const toggleDropdown = () => {
     setIsDropdownVisible((prev) => !prev);
   };
 
-  // Close dropdown when clicking outside
+  // ================= CLICK OUTSIDE =================
   useEffect(() => {
     const handleClickOutside = (event) => {
       const clickedDesktopDropdown =
@@ -49,8 +48,15 @@ const Navbar = () => {
     };
   }, []);
 
-  // Close everything after mobile navigation
+  // ================= MOBILE NAVIGATION =================
   const handleMobileNavigation = () => {
+    setIsDropdownVisible(false);
+    setIsMenu(false);
+  };
+
+  // ================= LOGOUT =================
+  const handleLogout = () => {
+    logout();
     setIsDropdownVisible(false);
     setIsMenu(false);
   };
@@ -58,10 +64,12 @@ const Navbar = () => {
   return (
     <div className="w-full animate-slideInFromTop">
 
-      {/* ================= NAVBAR ================= */}
+      {/* =====================================================
+          NAVBAR
+      ====================================================== */}
       <div className="w-full h-20 flex items-center justify-between">
 
-        {/* Logo */}
+        {/* ================= LOGO ================= */}
         <div>
           <img
             src="/FitnessAppLogo.png"
@@ -70,7 +78,7 @@ const Navbar = () => {
           />
         </div>
 
-        {/* ================= DESKTOP MENU ================= */}
+        {/* ================= DESKTOP NAVIGATION ================= */}
         <div className="hidden md:flex relative gap-4">
 
           <NavLink to="/" className="cursor-pointer">
@@ -91,14 +99,21 @@ const Navbar = () => {
 
         </div>
 
-        {/* ================= MOBILE MENU BUTTON ================= */}
+        {/* =====================================================
+            MOBILE HAMBURGER
+        ====================================================== */}
+
+        {/* IMPORTANT:
+            Do NOT put onClick={toggleMenu} on the button.
+            Hamburger already handles the toggle.
+        */}
         <div className="md:hidden">
-          <button
-            onClick={toggleMenu}
-            className="scale-75 border border-slate-600 rounded-md focus:outline-none"
-          >
-            <Hamburger toggled={isMenu} toggle={toggleMenu} />
-          </button>
+          <Hamburger
+            toggled={isMenu}
+            toggle={toggleMenu}
+            size={32}
+            rounded
+          />
         </div>
 
         {/* ================= DESKTOP USER MENU ================= */}
@@ -121,9 +136,12 @@ const Navbar = () => {
               </Link>
             </>
           ) : (
-            <div className="relative" ref={userDropdownRef}>
+            <div
+              className="relative"
+              ref={userDropdownRef}
+            >
 
-              {/* Username */}
+              {/* USER NAME */}
               <button
                 type="button"
                 className="cursor-pointer text-xl text-gray-500 flex gap-2 items-center"
@@ -134,7 +152,7 @@ const Navbar = () => {
                 <FontAwesomeIcon icon={faCaretDown} />
               </button>
 
-              {/* Desktop Dropdown */}
+              {/* ================= DESKTOP DROPDOWN ================= */}
               <AnimatePresence>
                 {isDropdownVisible && (
                   <motion.div
@@ -145,9 +163,10 @@ const Navbar = () => {
                     className="absolute right-0 mt-2 w-52 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden"
                   >
 
-                    {/* User Info */}
+                    {/* USER INFO */}
                     <div className="py-2 border-b border-gray-100">
                       <div className="px-4 py-2">
+
                         <p className="text-sm font-medium text-gray-400">
                           Signed in as
                         </p>
@@ -155,16 +174,18 @@ const Navbar = () => {
                         <p className="text-base font-semibold text-gray-800 truncate">
                           {user?.name || "User"}
                         </p>
+
                       </div>
                     </div>
 
-                    {/* Links */}
+                    {/* DROPDOWN LINKS */}
                     <div className="py-1">
 
+                      {/* PROFILE */}
                       <Link
                         to="/profile/update-profile"
-                        className="flex items-center px-4 py-2.5 text-base text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
                         onClick={() => setIsDropdownVisible(false)}
+                        className="flex items-center px-4 py-2.5 text-base text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
                       >
                         <svg
                           className="w-5 h-5 mr-3"
@@ -183,10 +204,11 @@ const Navbar = () => {
                         Profile
                       </Link>
 
+                      {/* MY WORKOUTS */}
                       <Link
                         to="/profile/workout-details"
-                        className="flex items-center px-4 py-2.5 text-base text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
                         onClick={() => setIsDropdownVisible(false)}
+                        className="flex items-center px-4 py-2.5 text-base text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
                       >
                         <svg
                           className="w-5 h-5 mr-3"
@@ -205,10 +227,11 @@ const Navbar = () => {
                         My Workouts
                       </Link>
 
+                      {/* SAVED WORKOUTS */}
                       <Link
                         to="/profile/saved-workouts"
-                        className="flex items-center px-4 py-2.5 text-base text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
                         onClick={() => setIsDropdownVisible(false)}
+                        className="flex items-center px-4 py-2.5 text-base text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
                       >
                         <svg
                           className="w-5 h-5 mr-3"
@@ -227,10 +250,11 @@ const Navbar = () => {
                         Saved Workouts
                       </Link>
 
+                      {/* CREATE WORKOUT */}
                       <Link
                         to="/profile/workout-builder"
-                        className="flex items-center px-4 py-2.5 text-base text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
                         onClick={() => setIsDropdownVisible(false)}
+                        className="flex items-center px-4 py-2.5 text-base text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
                       >
                         <svg
                           className="w-5 h-5 mr-3"
@@ -251,20 +275,22 @@ const Navbar = () => {
 
                     </div>
 
-                    {/* Logout */}
+                    {/* LOGOUT */}
                     <div className="py-1 border-t border-gray-100">
+
                       <button
                         type="button"
-                        onClick={() => {
-                          logout();
-                          setIsDropdownVisible(false);
-                        }}
+                        onClick={handleLogout}
                         className="flex items-center w-full px-4 py-2.5 text-base text-red-600 hover:bg-red-50 transition-colors"
                       >
-                        <FiLogOut size={18} className="mr-3" />
+                        <FiLogOut
+                          size={18}
+                          className="mr-3"
+                        />
 
                         Logout
                       </button>
+
                     </div>
 
                   </motion.div>
@@ -277,16 +303,32 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* ================= MOBILE MENU ================= */}
-      {isMenu && (
-        <AnimatePresence>
+      {/* =====================================================
+          MOBILE MENU
+      ====================================================== */}
+
+      <AnimatePresence>
+        {isMenu && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="flex flex-col md:hidden gap-2 p-4"
+            initial={{
+              opacity: 0,
+              height: 0,
+            }}
+            animate={{
+              opacity: 1,
+              height: "auto",
+            }}
+            exit={{
+              opacity: 0,
+              height: 0,
+            }}
+            transition={{
+              duration: 0.2,
+            }}
+            className="flex flex-col md:hidden gap-2 p-4 bg-white"
           >
 
+            {/* HOME */}
             <NavLink
               to="/"
               onClick={handleMobileNavigation}
@@ -294,6 +336,7 @@ const Navbar = () => {
               Home
             </NavLink>
 
+            {/* FEATURES */}
             <NavLink
               to="/Features"
               onClick={handleMobileNavigation}
@@ -301,6 +344,7 @@ const Navbar = () => {
               Features
             </NavLink>
 
+            {/* ABOUT */}
             <NavLink
               to="/AboutUs"
               onClick={handleMobileNavigation}
@@ -308,6 +352,7 @@ const Navbar = () => {
               About Us
             </NavLink>
 
+            {/* CONTACT */}
             <NavLink
               to="/ContactUs"
               onClick={handleMobileNavigation}
@@ -315,97 +360,109 @@ const Navbar = () => {
               Contact Us
             </NavLink>
 
+            {/* ================= AUTH ================= */}
+
             {!isAuthenticated ? (
               <>
                 <Link
                   to="/SignIn"
-                  className="cursor-pointer text-sm text-gray-500 py-2"
                   onClick={handleMobileNavigation}
+                  className="cursor-pointer text-sm text-gray-500 py-2"
                 >
                   Login
                 </Link>
 
                 <Link
                   to="/Register"
-                  className="cursor-pointer text-sm text-gray-500 py-2"
                   onClick={handleMobileNavigation}
+                  className="cursor-pointer text-sm text-gray-500 py-2"
                 >
                   Register
                 </Link>
               </>
             ) : (
 
-              /* ================= MOBILE USER MENU ================= */
+              /* ================= MOBILE USER ================= */
+
               <div
                 className="relative"
                 ref={mobileDropdownRef}
               >
 
-                {/* Username */}
+                {/* USER NAME */}
                 <button
                   type="button"
-                  className="cursor-pointer text-sm flex gap-2 text-gray-500 items-center"
                   onClick={toggleDropdown}
+                  className="cursor-pointer text-sm flex gap-2 text-gray-500 items-center py-2"
                 >
                   {user?.name || "User"}
 
                   <FontAwesomeIcon icon={faCaretDown} />
                 </button>
 
-                {/* Mobile Dropdown */}
+                {/* ================= MOBILE DROPDOWN ================= */}
+
                 <AnimatePresence>
                   {isDropdownVisible && (
                     <motion.div
-                      initial={{ opacity: 0, y: -5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -5 }}
+                      initial={{
+                        opacity: 0,
+                        y: -5,
+                      }}
+                      animate={{
+                        opacity: 1,
+                        y: 0,
+                      }}
+                      exit={{
+                        opacity: 0,
+                        y: -5,
+                      }}
+                      transition={{
+                        duration: 0.15,
+                      }}
                       className="mt-1 pl-4 w-full bg-white border-l border-gray-200 z-50"
                     >
 
-                      {/* Profile */}
+                      {/* PROFILE */}
                       <Link
                         to="/profile/update-profile"
-                        className="block py-3 text-sm text-gray-700 hover:text-green-600"
                         onClick={handleMobileNavigation}
+                        className="block py-3 text-sm text-gray-700 hover:text-green-600"
                       >
                         👤 Profile
                       </Link>
 
-                      {/* My Workouts */}
+                      {/* MY WORKOUTS */}
                       <Link
                         to="/profile/workout-details"
-                        className="block py-3 text-sm text-gray-700 hover:text-green-600"
                         onClick={handleMobileNavigation}
+                        className="block py-3 text-sm text-gray-700 hover:text-green-600"
                       >
                         📋 My Workouts
                       </Link>
 
-                      {/* Saved Workouts */}
+                      {/* SAVED WORKOUTS */}
                       <Link
                         to="/profile/saved-workouts"
-                        className="block py-3 text-sm text-gray-700 hover:text-green-600"
                         onClick={handleMobileNavigation}
+                        className="block py-3 text-sm text-gray-700 hover:text-green-600"
                       >
                         🔖 Saved Workouts
                       </Link>
 
-                      {/* Create Workout */}
+                      {/* CREATE WORKOUT */}
                       <Link
                         to="/profile/workout-builder"
-                        className="block py-3 text-sm text-gray-700 hover:text-green-600"
                         onClick={handleMobileNavigation}
+                        className="block py-3 text-sm text-gray-700 hover:text-green-600"
                       >
                         ➕ Create Workout
                       </Link>
 
-                      {/* Logout */}
+                      {/* LOGOUT */}
                       <button
                         type="button"
-                        onClick={() => {
-                          logout();
-                          setIsDropdownVisible(false);
-                          setIsMenu(false);
-                        }}
+                        onClick={handleLogout}
                         className="w-full text-left block py-3 text-sm text-red-600"
                       >
                         <FiLogOut
@@ -424,8 +481,8 @@ const Navbar = () => {
             )}
 
           </motion.div>
-        </AnimatePresence>
-      )}
+        )}
+      </AnimatePresence>
 
     </div>
   );
