@@ -1,0 +1,19 @@
+/* Basic layout styles for the Home component */
+.App {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.content-container {
+  flex: 1;
+  padding: 20px;
+  margin-top: 60px; /* Adjust based on your navbar height */
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .content-container {
+    padding: 15px;
+  }
+} 
