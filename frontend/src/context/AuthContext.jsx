@@ -23,7 +23,7 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUser = async (userId) => {
     try {
-      const response = await axios.get(`/api/users/${userId}`);
+      const response = await axios.get( `https://fitness-tracker-9ywk.onrender.com/api/users/${userId}`);
       setUser({
         ...response.data,
         profileImage: response.data.profileImage || null,
