@@ -7,29 +7,8 @@ const bcrypt = require("bcryptjs");
 // EMAIL TRANSPORTER - IMPROVED
 // =====================================================
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  // Add timeout and debug options
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 10000,
-});
 
 // Verify transporter connection on startup
-transporter.verify(function (error, success) {
-  if (error) {
-    console.error("SMTP Connection Error:", error);
-  } else {
-    console.log("SMTP Server is ready to send emails");
-  }
-});
 
 // =====================================================
 // GENERATE OTP
@@ -45,19 +24,38 @@ const generateOTP = () => {
 
 const sendEmail = async (to, subject, html) => {
   try {
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      auth: {
+        user: String(process.env.EMAIL_USER).trim(),
+        pass: String(process.env.EMAIL_PASS).trim(),
+      },
+    });
+
     const mailOptions = {
       from: `"FitFusion" <${process.env.EMAIL_USER}>`,
-      to: to,
-      subject: subject,
-      html: html,
+      to,
+      subject,
+      html,
     };
 
     const info = await transporter.sendMail(mailOptions);
+
     console.log("Email sent successfully:", info.messageId);
-    return { success: true, info };
+
+    return {
+      success: true,
+      info,
+    };
   } catch (error) {
     console.error("Email sending failed:", error);
-    return { success: false, error: error.message };
+
+    return {
+      success: false,
+      error: error.message,
+    };
   }
 };
 
