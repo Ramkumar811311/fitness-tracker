@@ -2,7 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://your-backend.onrender.com/api/:path*"
+      "destination": "https://fitness-tracker-9ywk.onrender.com/api/:path*"
+    },
+    {
+      "source": "/uploads/:path*",
+      "destination": "https://fitness-tracker-9ywk.onrender.com/uploads/:path*"
     },
     {
       "source": "/(.*)",
