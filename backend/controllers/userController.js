@@ -1,30 +1,40 @@
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-const verificationEmail = require("../emailTemplates/verificationEmail");
-const util = require("util");
 
 // =====================================================
-// EMAIL TRANSPORTER
+// RESEND EMAIL CLIENT
 // =====================================================
 
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+// =====================================================
+// EMAIL FROM ADDRESS
+// =====================================================
+
+// IMPORTANT:
+// Use an email/domain that is verified in your Resend account.
+//
+// For testing, use the sender address shown/allowed
+// by your Resend dashboard.
+//
+// Example:
+// const FROM_EMAIL = "FitFusion <onboarding@resend.dev>";
+//
+// For production with your own verified domain:
+// const FROM_EMAIL = "FitFusion <noreply@yourdomain.com>";
+
+const FROM_EMAIL = "FitFusion <onboarding@resend.dev>";
 
 // =====================================================
 // GENERATE OTP
 // =====================================================
 
 const generateOTP = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return Math.floor(
+    100000 + Math.random() * 900000
+  ).toString();
 };
 
 // =====================================================
@@ -53,24 +63,29 @@ const registerUser = async (req, res) => {
       });
     }
 
-    // Delete old unverified account
+    // Delete old unverified user
     if (userNotVerified) {
       await userNotVerified.deleteOne();
     }
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(
+      password,
+      10
+    );
 
     // Generate OTP
     const otp = generateOTP();
 
+    // OTP expiry = 10 minutes
     const otpExpiry = new Date();
+
     otpExpiry.setMinutes(
       otpExpiry.getMinutes() + 10
     );
 
     // =================================================
-    // OTP EMAIL
+    // OTP EMAIL HTML
     // =================================================
 
     const emailContent = `
@@ -79,70 +94,94 @@ const registerUser = async (req, res) => {
           font-family: Arial, sans-serif;
           max-width: 600px;
           margin: 0 auto;
-          padding: 20px;
-          border: 1px solid #e0e0e0;
-          border-radius: 5px;
+          padding: 30px;
+          background-color: #ffffff;
+          border: 1px solid #e5e7eb;
+          border-radius: 10px;
         "
       >
 
-        <h2 style="color: #333;">
-          Verify Your Email
+        <h2 style="color: #2563eb;">
+          Verify Your FitFusion Account
         </h2>
 
-        <p>Hello ${name},</p>
+        <p>
+          Hello <strong>${name}</strong>,
+        </p>
 
         <p>
           Thank you for registering with FitFusion.
-          To complete your registration, please use
-          the following OTP:
+          Please use the OTP below to verify your email.
         </p>
 
         <div
           style="
-            background-color: #f5f5f5;
-            padding: 15px;
-            border-radius: 5px;
+            margin: 25px 0;
+            padding: 20px;
+            background-color: #eff6ff;
+            border-radius: 10px;
             text-align: center;
-            font-size: 24px;
-            letter-spacing: 5px;
-            font-weight: bold;
           "
         >
-          ${otp}
+          <span
+            style="
+              font-size: 32px;
+              font-weight: bold;
+              letter-spacing: 8px;
+              color: #2563eb;
+            "
+          >
+            ${otp}
+          </span>
         </div>
 
-        <p style="margin-top: 20px;">
-          This OTP is valid for 10 minutes.
+        <p>
+          This OTP will expire in <strong>10 minutes</strong>.
         </p>
 
         <p>
-          If you didn't request this, please ignore this email.
+          If you didn't create this account,
+          you can safely ignore this email.
         </p>
 
         <p>
           Best regards,<br />
-          The FitFusion Team
+          <strong>FitFusion Team</strong>
         </p>
 
       </div>
     `;
 
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Your OTP for FitFusion Registration",
+    // =================================================
+    // SEND OTP USING RESEND
+    // =================================================
+
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: [email],
+      subject: "Your FitFusion Verification OTP",
       html: emailContent,
-    };
+    });
 
-    // Send email
-    const sendMailPromise = util
-      .promisify(transporter.sendMail)
-      .bind(transporter);
+    if (error) {
+      console.error(
+        "Resend OTP Error:",
+        error
+      );
 
-    await sendMailPromise(mailOptions);
+      return res.status(500).json({
+        message:
+          "Failed to send OTP. Please try again.",
+      });
+    }
+
+    console.log(
+      "OTP email sent successfully:",
+      data?.id
+    );
 
     // =================================================
-    // CREATE USER AFTER EMAIL SUCCESS
+    // CREATE USER
     // =================================================
 
     const user = await User.create({
@@ -151,15 +190,15 @@ const registerUser = async (req, res) => {
       password: hashedPassword,
       otp,
       otpExpiry,
+      isVerified: false,
     });
-
-    await user.save();
 
     res.status(201).json({
       message:
         "OTP sent to your email. Please verify to complete registration.",
-      email: email,
+      email,
     });
+
   } catch (error) {
     console.error(
       "Error registering user:",
@@ -199,7 +238,10 @@ const verifyOTP = async (req, res) => {
     }
 
     // Check expiry
-    if (new Date() > user.otpExpiry) {
+    if (
+      !user.otpExpiry ||
+      new Date() > user.otpExpiry
+    ) {
       return res.status(400).json({
         message: "OTP has expired",
       });
@@ -212,7 +254,10 @@ const verifyOTP = async (req, res) => {
 
     await user.save();
 
-    // Generate JWT
+    // =================================================
+    // GENERATE JWT
+    // =================================================
+
     const token = jwt.sign(
       {
         id: user._id,
@@ -224,10 +269,12 @@ const verifyOTP = async (req, res) => {
     );
 
     res.status(200).json({
-      message: "Email verified successfully",
+      message:
+        "Email verified successfully",
       token,
       name: user.name,
     });
+
   } catch (error) {
     console.error(
       "Error verifying OTP:",
@@ -248,7 +295,6 @@ const resendOTP = async (req, res) => {
   const { email } = req.body;
 
   try {
-    // Find unverified user
     const user = await User.findOne({
       email,
       isVerified: false,
@@ -271,7 +317,7 @@ const resendOTP = async (req, res) => {
     );
 
     // =================================================
-    // RESEND EMAIL
+    // RESEND OTP EMAIL
     // =================================================
 
     const emailContent = `
@@ -280,80 +326,96 @@ const resendOTP = async (req, res) => {
           font-family: Arial, sans-serif;
           max-width: 600px;
           margin: 0 auto;
-          padding: 20px;
-          border: 1px solid #e0e0e0;
-          border-radius: 5px;
+          padding: 30px;
+          background-color: #ffffff;
+          border: 1px solid #e5e7eb;
+          border-radius: 10px;
         "
       >
 
-        <h2 style="color: #333;">
-          Your New OTP
+        <h2 style="color: #2563eb;">
+          Your New FitFusion OTP
         </h2>
 
         <p>
-          Hello ${user.name},
+          Hello <strong>${user.name}</strong>,
         </p>
 
         <p>
-          You requested a new OTP.
-          Please use the following code
-          to verify your account:
+          You requested a new verification OTP.
         </p>
 
         <div
           style="
-            background-color: #f5f5f5;
-            padding: 15px;
-            border-radius: 5px;
+            margin: 25px 0;
+            padding: 20px;
+            background-color: #eff6ff;
+            border-radius: 10px;
             text-align: center;
-            font-size: 24px;
-            letter-spacing: 5px;
-            font-weight: bold;
           "
         >
-          ${otp}
+          <span
+            style="
+              font-size: 32px;
+              font-weight: bold;
+              letter-spacing: 8px;
+              color: #2563eb;
+            "
+          >
+            ${otp}
+          </span>
         </div>
 
-        <p style="margin-top: 20px;">
-          This OTP is valid for 10 minutes.
-        </p>
-
         <p>
-          If you didn't request this, please ignore this email.
+          This OTP will expire in
+          <strong>10 minutes</strong>.
         </p>
 
         <p>
           Best regards,<br />
-          The FitFusion Team
+          <strong>FitFusion Team</strong>
         </p>
 
       </div>
     `;
 
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject:
-        "Your New OTP for FitFusion Registration",
-      html: emailContent,
-    };
+    const { data, error } =
+      await resend.emails.send({
+        from: FROM_EMAIL,
+        to: [email],
+        subject:
+          "Your New FitFusion Verification OTP",
+        html: emailContent,
+      });
 
-    // Send email
-    const sendMailPromise = util
-      .promisify(transporter.sendMail)
-      .bind(transporter);
+    if (error) {
+      console.error(
+        "Resend resendOTP Error:",
+        error
+      );
 
-    await sendMailPromise(mailOptions);
+      return res.status(500).json({
+        message:
+          "Failed to resend OTP. Please try again.",
+      });
+    }
 
-    // Update OTP
+    console.log(
+      "Resend OTP email sent:",
+      data?.id
+    );
+
+    // Update OTP only after email succeeds
     user.otp = otp;
     user.otpExpiry = otpExpiry;
 
     await user.save();
 
     res.status(200).json({
-      message: "New OTP sent to your email",
+      message:
+        "New OTP sent to your email",
     });
+
   } catch (error) {
     console.error(
       "Error resending OTP:",
@@ -372,7 +434,10 @@ const resendOTP = async (req, res) => {
 // =====================================================
 
 const loginUser = async (req, res) => {
-  const { email, password } = req.body;
+  const {
+    email,
+    password,
+  } = req.body;
 
   try {
     const user = await User.findOne({
@@ -388,7 +453,8 @@ const loginUser = async (req, res) => {
     ) {
       if (!user.isVerified) {
         return res.status(400).json({
-          message: "Email not verified",
+          message:
+            "Email not verified",
         });
       }
 
@@ -406,11 +472,12 @@ const loginUser = async (req, res) => {
       return res.status(200).json({
         token,
       });
-    } else {
-      return res.status(400).json({
-        message: "Invalid credentials",
-      });
     }
+
+    return res.status(400).json({
+      message: "Invalid credentials",
+    });
+
   } catch (error) {
     console.error(
       "Error logging in user:",
@@ -429,9 +496,10 @@ const loginUser = async (req, res) => {
 
 const getUserById = async (req, res) => {
   try {
-    const user = await User.findById(
-      req.params.id
-    ).select("-password");
+    const user =
+      await User.findById(
+        req.params.id
+      ).select("-password");
 
     if (!user) {
       return res.status(404).json({
@@ -440,6 +508,7 @@ const getUserById = async (req, res) => {
     }
 
     res.json(user);
+
   } catch (error) {
     console.error(error);
 
@@ -492,17 +561,30 @@ const updateProfile = async (req, res) => {
     }
 
     // Update fields
-    if (name) user.name = name;
+    if (name) {
+      user.name = name;
+    }
 
-    if (height) user.height = height;
+    if (height) {
+      user.height = height;
+    }
 
-    if (weight) user.weight = weight;
+    if (weight) {
+      user.weight = weight;
+    }
 
-    if (gender) user.gender = gender;
+    if (gender) {
+      user.gender = gender;
+    }
 
-    if (age) user.age = age;
+    if (age) {
+      user.age = age;
+    }
 
-    // Update profile image
+    // =================================================
+    // PROFILE IMAGE
+    // =================================================
+
     if (req.file) {
       user.profileImage =
         `/uploads/${req.file.filename.replace(
@@ -511,7 +593,10 @@ const updateProfile = async (req, res) => {
         )}`;
     }
 
-    // Update password
+    // =================================================
+    // PASSWORD
+    // =================================================
+
     if (
       password &&
       password.trim() !== ""
@@ -523,7 +608,7 @@ const updateProfile = async (req, res) => {
         );
     }
 
-    // Save
+    // Save user
     const updatedUser =
       await user.save();
 
@@ -543,6 +628,7 @@ const updateProfile = async (req, res) => {
       gender: updatedUser.gender,
       age: updatedUser.age,
     });
+
   } catch (error) {
     console.error(
       "Error updating profile:",
@@ -550,7 +636,8 @@ const updateProfile = async (req, res) => {
     );
 
     res.status(500).json({
-      message: "Error updating profile",
+      message:
+        "Error updating profile",
       error: error.message,
     });
   }
@@ -568,18 +655,24 @@ const contactUs = async (req, res) => {
   } = req.body;
 
   try {
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
+    const mailContent = `
+      <div
+        style="
+          font-family: Arial, sans-serif;
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 30px;
+          background-color: #ffffff;
+          border: 1px solid #e5e7eb;
+          border-radius: 10px;
+        "
+      >
 
-      to: "ramkumar070406@gmail.com",
+        <h2 style="color: #2563eb;">
+          New Contact Form Message
+        </h2>
 
-      subject:
-        "New Contact Form Submission",
-
-      html: `
-        <h1>
-          New Contact Form Submission
-        </h1>
+        <hr />
 
         <p>
           <strong>Name:</strong>
@@ -593,20 +686,60 @@ const contactUs = async (req, res) => {
 
         <p>
           <strong>Message:</strong>
-          ${message}
         </p>
-      `,
-    };
 
-    // Send contact email
-    await transporter.sendMail(
-      mailOptions
+        <div
+          style="
+            padding: 15px;
+            background-color: #f9fafb;
+            border-radius: 8px;
+          "
+        >
+          ${message}
+        </div>
+
+      </div>
+    `;
+
+    // =================================================
+    // SEND CONTACT EMAIL
+    // =================================================
+
+    const { data, error } =
+      await resend.emails.send({
+        from: FROM_EMAIL,
+
+        // Your receiving email
+        to: ["ramkumar070406@gmail.com"],
+
+        subject:
+          "New Contact Form Submission",
+
+        html: mailContent,
+      });
+
+    if (error) {
+      console.error(
+        "Resend Contact Error:",
+        error
+      );
+
+      return res.status(500).json({
+        message:
+          "Failed to send your message. Please try again later.",
+      });
+    }
+
+    console.log(
+      "Contact email sent:",
+      data?.id
     );
 
     res.status(200).json({
       message:
         "Your message has been sent successfully!",
     });
+
   } catch (error) {
     console.error(
       "Error sending contact form email:",
