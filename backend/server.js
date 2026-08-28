@@ -11,6 +11,16 @@ const path = require("path");
 // Load environment variables
 dotenv.config();
 
+console.log(
+  "EMAIL_USER length:",
+  process.env.EMAIL_USER?.length
+);
+
+console.log(
+  "EMAIL_PASS length:",
+  process.env.EMAIL_PASS?.length
+);
+
 // Connect to MongoDB
 connectDB();
 

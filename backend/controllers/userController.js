@@ -1,4 +1,3 @@
-const nodemailer = require("nodemailer");
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
@@ -19,38 +18,89 @@ const generateOTP = () => {
 };
 
 // =====================================================
-// SEND EMAIL HELPER FUNCTION
+// BREVO EMAIL API
 // =====================================================
 
 const sendEmail = async (to, subject, html) => {
   try {
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
-      auth: {
-        user: String(process.env.EMAIL_USER).trim(),
-        pass: String(process.env.EMAIL_PASS).trim(),
-      },
-    });
+    if (!process.env.BREVO_API_KEY) {
+      throw new Error("BREVO_API_KEY is missing");
+    }
 
-    const mailOptions = {
-      from: `"FitFusion" <${process.env.EMAIL_USER}>`,
-      to,
-      subject,
-      html,
-    };
+    if (!process.env.BREVO_FROM_EMAIL) {
+      throw new Error("BREVO_FROM_EMAIL is missing");
+    }
 
-    const info = await transporter.sendMail(mailOptions);
+    const response = await fetch(
+      "https://api.brevo.com/v3/smtp/email",
+      {
+        method: "POST",
 
-    console.log("Email sent successfully:", info.messageId);
+        headers: {
+          accept: "application/json",
+          "api-key": process.env.BREVO_API_KEY,
+          "content-type": "application/json",
+        },
+
+        body: JSON.stringify({
+          sender: {
+            name: process.env.BREVO_FROM_NAME || "FitFusion",
+            email: process.env.BREVO_FROM_EMAIL,
+          },
+
+          to: [
+            {
+              email: to,
+            },
+          ],
+
+          subject: subject,
+
+          htmlContent: html,
+        }),
+      }
+    );
+
+    const responseText = await response.text();
+
+    let result = {};
+
+    try {
+      result = responseText
+        ? JSON.parse(responseText)
+        : {};
+    } catch {
+      result = {
+        raw: responseText,
+      };
+    }
+
+    if (!response.ok) {
+      console.error("Brevo API Error:", result);
+
+      return {
+        success: false,
+        error:
+          result?.message ||
+          responseText ||
+          `HTTP ${response.status}`,
+      };
+    }
+
+    console.log(
+      "Brevo email sent successfully:",
+      result.messageId
+    );
 
     return {
       success: true,
-      info,
+      info: result,
     };
   } catch (error) {
-    console.error("Email sending failed:", error);
+    console.error(
+      "Brevo email sending failed:",
+      error.message
+    );
 
     return {
       success: false,
@@ -204,7 +254,7 @@ const registerUser = async (req, res) => {
 
   } catch (error) {
     console.error("Error registering user:", error);
-    
+
     // Handle duplicate key error
     if (error.code === 11000) {
       return res.status(400).json({
@@ -279,10 +329,10 @@ const verifyOTP = async (req, res) => {
 
     // Generate JWT
     const token = jwt.sign(
-      { 
+      {
         id: user._id,
         email: user.email,
-        name: user.name 
+        name: user.name
       },
       process.env.JWT_SECRET,
       { expiresIn: "30d" }
@@ -483,10 +533,10 @@ const loginUser = async (req, res) => {
 
     // Generate JWT
     const token = jwt.sign(
-      { 
+      {
         id: user._id,
         email: user.email,
-        name: user.name 
+        name: user.name
       },
       process.env.JWT_SECRET,
       { expiresIn: "30d" }
@@ -662,15 +712,29 @@ const contactUs = async (req, res) => {
       </html>
     `;
 
-    const mailOptions = {
-      from: `"${name}" <${process.env.EMAIL_USER}>`,
-      replyTo: email,
-      to: "ramkumar070406@gmail.com",
-      subject: `New Contact Form Submission from ${name}`,
-      html: emailContent,
-    };
+    const emailResult = await sendEmail(
+      "ramkumar070406@gmail.com",
+      `New Contact Form Submission from ${name}`,
+      emailContent
+    );
 
-    await transporter.sendMail(mailOptions);
+    if (!emailResult.success) {
+      console.error(
+        "Contact form email failed:",
+        emailResult.error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send your message. Please try again later.",
+        error:
+          process.env.NODE_ENV === "development"
+            ? emailResult.error
+            : undefined,
+      });
+    }
+
+    
 
     res.status(200).json({
       success: true,

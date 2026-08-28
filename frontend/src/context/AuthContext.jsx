@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import {jwtDecode} from "jwt-decode"; // Default import for decoding JWT
+import { jwtDecode } from "jwt-decode"; // Default import for decoding JWT
 import axios from "axios"; // For making API calls
 
 const AuthContext = createContext();
@@ -24,19 +24,21 @@ export const AuthProvider = ({ children }) => {
   const fetchUser = async (userId) => {
     try {
       const response = await axios.get(`/api/users/${userId}`);
+
+      const userData = response.data.user;
+
       setUser({
-        ...response.data,
-        profileImage: response.data.profileImage || null,
-        height: response.data.height || "",
-        weight: response.data.weight || "",
-        gender: response.data.gender || "",
-        age: response.data.age || "",
+        ...userData,
+        profileImage: userData.profileImage || null,
+        height: userData.height || "",
+        weight: userData.weight || "",
+        gender: userData.gender || "",
+        age: userData.age || "",
       });
     } catch (error) {
       console.error("Failed to fetch user:", error);
     }
   };
-
   const login = async (token) => {
     try {
       localStorage.setItem("jwttoken", token);
